@@ -1,6 +1,7 @@
 from typing import List
 from enum import Enum
 
+
 class ShiftMove(Enum):
     NO_MOVE = "0"
     LEFT = "-"
@@ -54,7 +55,8 @@ class TransactionQuintuple:
         self.move = move
 
     def getQuadruple(self, displacement=0) -> [TransactionQuadruple, TransactionQuadruple]:
-        q1 = TransactionQuadruple(self.input_state, self.input_symbol, self.input_state+displacement, self.output_symbol)
+        q1 = TransactionQuadruple(self.input_state, self.input_symbol, self.input_state + displacement,
+                                  self.output_symbol)
         q2 = TransactionQuadruple(q1.input_state, ShiftMove.INPUT.value, self.output_state, self.move)
         return q1, q2
 
@@ -83,3 +85,38 @@ class StandarTuringMachine:
             """
 
         return True
+
+
+class Tape:
+    BLANK_SYMBOL = ''
+    LIMIT_SYMBOL = '§'
+    tape_internal: list = ['$', BLANK_SYMBOL]
+    pointer: int = 1
+
+    def __init__(self, input: str):
+        super().__init__()
+        self.tape_internal.append(self.LIMIT_SYMBOL)
+        for c in input:
+            self.tape_internal.append(c)
+
+    def _sync_size(self):
+        while self.pointer + 1 > len(self.tape_internal):
+            self.tape_internal.append(self.BLANK_SYMBOL)
+
+    def righ(self):
+        self.pointer += 1
+        self._sync_size()
+
+    def left(self):
+        self.pointer -= 1
+        if self.pointer < 0:
+            raise Exception("Tape: Movimento para além do limite esquerdo")
+        self._sync_size()
+
+    def write(self, value: str):
+        if self.pointer == 0:
+            raise Exception(f"Tape: Tentativa de sobrescrever o símbolo limitador de fita {self.LIMIT_SYMBOL}")
+        self.tape_internal[self.pointer] = value
+
+    def read(self) -> str:
+        return self.tape_internal[self.pointer]
