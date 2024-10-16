@@ -62,7 +62,7 @@ class TransitionQuintuple:
 
 
 class Tape:
-    BLANK_SYMBOL = '_'
+    BLANK_SYMBOL = 'B'
     LIMIT_SYMBOL = '§'
     tape_internal: list = [LIMIT_SYMBOL]
     pointer: int = 1
@@ -105,23 +105,34 @@ class Tape:
 
 
 class TuringMachine:
+    DETAIL_STR = False
     NO_MOVE = True
     current_state: str
     transitions: List[TransitionQuintuple]
     tapes: List[Tape]
+    accept_state: str
 
-    def __init__(self, transitions=None, init_state='q1'):
+    def __init__(self, accept_state: str, states: List[str], tape_symbols: List[str], input_symbols: List[str],
+                 transitions=None, init_state='q1', tapes: List[Tape] = None):
+        if tapes is None:
+            tapes = []
+        else:
+            self.tapes = tapes
         if transitions is None:
             transitions = []
         self.transitions = transitions
         self.current_state = init_state
+        self.accept_state = accept_state
+        self.states = states
+        self.tape_symbols = tape_symbols
+        self.input_symbols = input_symbols
 
     def bind_transition(self, transition: TransitionQuintuple, readed_symbol: List[str]) -> bool:
         return self.current_state == transition.input_state and transition.input_symbol == readed_symbol
 
     def _execute_transition(self, transition: TransitionQuintuple | TransitionQuadruple):
 
-        def exec_move(tape:Tape, move:ShiftMove):
+        def exec_move(tape: Tape, move: ShiftMove):
             if (move == ShiftMove.LEFT):
                 tape.left()
             elif move == ShiftMove.RIGHT:
@@ -161,6 +172,9 @@ class TuringMachine:
         return True
 
     def step(self):
+        if self.current_state == self.accept_state:
+            pass
+
         symbol = [tape.read() for tape in self.tapes]
 
         list_transitions = [t for t in self.transitions if self.bind_transition(t, symbol)]
@@ -177,4 +191,26 @@ class TuringMachine:
         self._execute_transition(transistion)
 
     def __str__(self):
-        pass
+        if self.DETAIL_STR:
+            out = f"""
+                    _-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-
+                    Símbolos de Entrada: {self.input_symbols}
+                    Símbolos de Fita: {self.tape_symbols}
+                    Estados: {self.states}
+                    Estado de Aceitação: {self.accept_state}
+                    Estado atual: {self.current_state} \n
+                    """
+        else:
+            out = f"Estado atual: {self.current_state} \n"
+
+        for tape in self.tapes:
+            out += tape.__str__() + "\n"
+        out += "\t\t_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-"
+
+        return out
+
+    def run(self):
+        while self.current_state != self.accept_state:
+            self.step()
+            print(self)
+        print("EXECUTION END")
