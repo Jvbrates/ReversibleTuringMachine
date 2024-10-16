@@ -49,12 +49,12 @@ def turing_from_file(file: IO):
     accept_state = states[-1]
 
     # Linha 3:
-    input_symbols = file.readline().lstrip().split(sep=' ')
+    input_symbols = file.readline().strip().split(sep=' ')
     if len(input_symbols) != n_input_symbols:
         raise Exception("Linha 3: Número de simbolos de entrada informado não corresponde ao fornecido")
 
     # Linha 4
-    input_tape = file.readline().lstrip().split(sep=' ')
+    input_tape = file.readline().strip().split(sep=' ')
     if len(input_tape) != n_tape_symbols:
         raise Exception("Linha 4: Número de simbolos de fita informado não corresponde ao fornecido")
     # TODO: Poderia verificar que o conjunto de simbolos de entrada é subset do conjunto de simbolos da fita
