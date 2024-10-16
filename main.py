@@ -12,10 +12,10 @@ import re
 from re import match
 from sys import stdin
 from typing import IO
-from TuringMachines import TransactionQuintuple, ShiftMove, Tape
+from TuringMachines import TransitionQuintuple, ShiftMove, Tape
 
 
-def make_trasnaction_quintuple(input: str) -> TransactionQuintuple:
+def make_trasnaction_quintuple(input: str) -> TransitionQuintuple:
 
     # Expressão regular para capturar os números e símbolos
     padrao = r"\((.+),(.+)\)=\((.+),(.+),(R|L|0|\+|\-)\)"
@@ -30,7 +30,7 @@ def make_trasnaction_quintuple(input: str) -> TransactionQuintuple:
         output_state = match.group(3)
         output_symbol = match.group(4)
         move = ShiftMove(match.group(5))
-        return TransactionQuintuple(input_state, input_symbol, output_state, output_symbol, move)
+        return TransitionQuintuple(input_state, input_symbol, output_state, output_symbol, move)
     else:
         raise Exception(f"Transição mal formatada \n -> {input}")
     # TODO talvez verificar se os simbolos usados na funcao transição correspondem ao que foi informado
@@ -62,17 +62,31 @@ def turing_from_file(file: IO):
     # Transições
     remain_lines = file.readlines()
 
-    transactions = []
+    transitions = []
     for line in remain_lines[0:-1]:
         print("Line:", line)
-        transactions.append(make_trasnaction_quintuple(line))
-    if len(transactions) != n_trans:
+        transitions.append(make_trasnaction_quintuple(line))
+    if len(transitions) != n_trans:
         raise Exception("Número de transições não corresponde ao fornecido")
 
     #Criar Fita
     tape = Tape(remain_lines[-1])
+    print("TAPE")
+    tape.right()
+    tape.right()
+    print(tape)
+    tape.right()
+    print(tape)
+    tape.right()
+    tape.right()
+    print(tape)
+    tape.left()
+    tape.left()
+    tape.left()
+    print(tape)
 
-    #return TuringMachine(transactions, tape)
+
+    #return TuringMachine(transitions, tape)
 
 file = open("entrada-quintupla.txt", "r")
 turing_from_file(file)
