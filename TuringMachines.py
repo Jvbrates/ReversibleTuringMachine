@@ -1,5 +1,6 @@
 from typing import List
 from enum import Enum
+from copy import deepcopy
 
 
 class ShiftMove(Enum):
@@ -29,14 +30,15 @@ class TransitionQuadruple:
     symbol_or_move: List[str | ShiftMove]
 
     def __init__(self, input_state, input_symbol, output_state, symbol_or_move):
-        if (ShiftMove(input_symbol) == ShiftMove.INPUT and ShiftMove(symbol_or_move) == ShiftMove.NONE
-                or ShiftMove(input_symbol) != ShiftMove.INPUT and ShiftMove(symbol_or_move) != ShiftMove.NONE):
-            raise Exception("Transição incongruente")
-
         self.input_state = input_state
         self.input_symbol = input_symbol
         self.output_state = output_state
         self.symbol_or_move = symbol_or_move
+
+    def __str__(self):
+        input_symbols_str = ','.join(self.input_symbol)
+        symbol_or_move_str = ','.join(map(str, self.symbol_or_move))
+        return f"({self.input_state},{input_symbols_str}) = ({self.output_state},{symbol_or_move_str})"
 
 
 class TransitionQuintuple:
@@ -54,10 +56,10 @@ class TransitionQuintuple:
         self.output_symbol = output_symbol
         self.move = move
 
-    def getQuadruple(self, displacement=0) -> [TransitionQuadruple, TransitionQuadruple]:
-        q1 = TransitionQuadruple(self.input_state, self.input_symbol, self.input_state + 'm',
+    def getQuadruple(self) -> [TransitionQuadruple, TransitionQuadruple]:
+        q1 = TransitionQuadruple(f"A({self.input_state})", self.input_symbol, f"A'({self.input_state})",
                                  self.output_symbol)
-        q2 = TransitionQuadruple(q1.input_state, ShiftMove.INPUT.value, self.output_state, self.move)
+        q2 = TransitionQuadruple(q1.output_state, ShiftMove.INPUT.value, f"A({self.output_state})", self.move)
         return q1, q2
 
 
@@ -108,6 +110,8 @@ class TuringMachine:
     DETAIL_STR = False
     NO_MOVE = True
     current_state: str
+    init_state: str
+    init_tapes: List[Tape]
     transitions: List[TransitionQuintuple]
     tapes: List[Tape]
     accept_state: str
@@ -115,20 +119,26 @@ class TuringMachine:
     def __init__(self, accept_state: str, states: List[str], tape_symbols: List[str], input_symbols: List[str],
                  transitions=None, init_state='q1', tapes: List[Tape] = None):
         if tapes is None:
-            tapes = []
+            self.init_tapes = []
         else:
-            self.tapes = tapes
+            self.init_tapes = deepcopy(tapes)
         if transitions is None:
             transitions = []
         self.transitions = transitions
-        self.current_state = init_state
+        self.init_state = init_state
         self.accept_state = accept_state
         self.states = states
         self.tape_symbols = tape_symbols
         self.input_symbols = input_symbols
 
+        self.reset()
+
+    def reset(self):
+        self.tapes = deepcopy(self.init_tapes)
+        self.current_state = self.init_state
+
     def bind_transition(self, transition: TransitionQuintuple, readed_symbol: List[str]) -> bool:
-        return self.current_state == transition.input_state and transition.input_symbol == readed_symbol
+        return self.current_state == transition.input_state and (transition.input_symbol == readed_symbol or transition.input_symbol == ShiftMove.INPUT.value )
 
     def _execute_transition(self, transition: TransitionQuintuple | TransitionQuadruple):
 
@@ -137,8 +147,8 @@ class TuringMachine:
                 tape.left()
             elif move == ShiftMove.RIGHT:
                 tape.right()
-            elif move == ShiftMove.NO_MOVE and not self.NO_MOVE:
-                raise Exception("Maquina de Turing: Esta MT não permite movimentos nulo")
+            elif move == ShiftMove.NO_MOVE and self.NO_MOVE:
+                pass
             else:
                 raise Exception("Movimento Inválido")
 
@@ -214,3 +224,61 @@ class TuringMachine:
             self.step()
             print(self)
         print("EXECUTION END")
+
+
+def make_reversible_turing_machine(Tm: TuringMachine) -> TuringMachine:
+    """
+    Deve retornar uma Máquina de Turing Multifita Reversivel
+    :param Tm: MT de uma fita
+    :return: MT Reversível
+    """
+    if len(Tm.tapes) > 1:
+        raise Exception("Expected one tape Turing Machine")
+
+    transtitions_quintuple: List[TransitionQuintuple] = []
+    states_list: List[str] = ["A(i), A(f)"]
+
+    # Adiciona os estados originais. x -> A(x)
+    for state in Tm.states:
+        states_list.append(f"A({state})")
+        states_list.append(f"A'({state})")
+
+    """Aplica o requisito descrito no artigo.
+    Special quintuples: The machine includes the following quintuples and T .
+    Ai, b -> b, +, A2,
+    Af-1, b -> b, 0, Af
+     
+     A2 é o estado inicial da máquina e Af-1 é o estado final, estes serçai "trocados" por A1 e Af-1
+     Espera-se que Tm não possua estados "i" e  "f"
+    """
+    first_transition = TransitionQuintuple('i', [Tm.tapes[0].BLANK_SYMBOL], Tm.init_state,
+                                           [Tape.BLANK_SYMBOL],
+                                           [ShiftMove.RIGHT])
+    last_transition = TransitionQuintuple(Tm.accept_state, [Tape.BLANK_SYMBOL], "f",
+                                          [Tape.BLANK_SYMBOL],
+                                          [ShiftMove.NO_MOVE])
+
+    transtitions_quintuple.append(first_transition)
+    transtitions_quintuple.append(last_transition)
+
+    transtitions_quintuple += Tm.transitions
+
+    transitions_quad: List[TransitionQuadruple] = []
+    for transition in transtitions_quintuple:
+        q1, q2 = transition.getQuadruple()
+        transitions_quad.append(q1)
+        transitions_quad.append(q2)
+
+    transitions_quad.sort(key=lambda a: a.input_state.replace("'", ""))
+
+    tmp_tape = deepcopy(Tm.tapes)
+    tmp_tape[0].tape_internal.insert(1, Tape.BLANK_SYMBOL)
+    print(tmp_tape[0])
+
+    for t in transitions_quad:
+        print(t)
+
+    return TuringMachine(init_state="A(i)", accept_state="A(f)",
+                         states=states_list, tape_symbols=Tm.tape_symbols,
+                         transitions=transitions_quad, tapes=deepcopy(Tm.tapes),
+                         input_symbols=Tm.input_symbols)

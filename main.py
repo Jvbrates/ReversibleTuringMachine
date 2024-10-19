@@ -11,17 +11,7 @@ número de transições, respectivamente.
 import re
 from sys import stdin
 from typing import IO
-from TuringMachines import TransitionQuintuple, ShiftMove, Tape, TuringMachine
-
-
-def make_reversible_turing_machine(Tm: TuringMachine):
-    """
-    Deve retornar uma Maquina de Turing Multifita Reversivel
-    :param Tm: MT de uma fita
-    :return: MT Reversível
-    """
-    if len(Tm.tapes) > 1:
-        raise Exception("Expected one tape Turing Machine")
+from TuringMachines import TransitionQuintuple, ShiftMove, Tape, TuringMachine, make_reversible_turing_machine
 
 
 def make_trasnaction_quintuple(input_: str) -> TransitionQuintuple:
@@ -93,9 +83,11 @@ def turing_from_file(file_read: IO) -> TuringMachine:
     return tm
 
 
-file = open("entrada-quintupla.txt", "r")
+file = open("teste.txt", "r")
 TM: TuringMachine = turing_from_file(file)
+# TM.run()
 
-Reversible_TM: make_reversible_turing_machine(TM)
+reversible_TM = make_reversible_turing_machine(TM)
+reversible_TM.run()
 
 # turing_from_file(stdin)
