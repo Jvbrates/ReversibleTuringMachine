@@ -57,20 +57,39 @@ class TransitionQuintuple:
         self.move = move
 
     def getQuadruple(self) -> [TransitionQuadruple, TransitionQuadruple]:
-        q1 = TransitionQuadruple(f"A({self.input_state})", self.input_symbol, f"A'({self.input_state})",
-                                 self.output_symbol)
-        q2 = TransitionQuadruple(q1.output_state, ShiftMove.INPUT.value, f"A({self.output_state})", self.move)
+        q1 = TransitionQuadruple(f"A({self.input_state})",
+                                 input_symbol=[self.input_symbol[0], "/", Tape.BLANK_SYMBOL],
+                                 output_state=f"A'({self.input_state})",
+                                 symbol_or_move=[self.output_symbol[0], ShiftMove.RIGHT, Tape.BLANK_SYMBOL]
+                                 )
+        q2 = TransitionQuadruple(q1.output_state,
+                                 input_symbol=[ShiftMove.INPUT.value, Tape.BLANK_SYMBOL, ShiftMove.INPUT.value],
+                                 output_state=f"A({self.output_state})",
+                                 symbol_or_move=[self.move[0], self.input_state, ShiftMove.NO_MOVE]
+                                 )
+
+        c1 = TransitionQuadruple(f"C{self.input_state}",
+                                 input_symbol=[ShiftMove.INPUT.value, self.input_state, ShiftMove.INPUT.value],
+                                 output_state=f"C'({self.output_state})",
+                                 symbol_or_move=[ShiftMove.Inverse(self.move), Tape.BLANK_SYMBOL, ShiftMove.NO_MOVE]
+                                 )
+        c1 = TransitionQuadruple(f"C'{self.input_state}",
+                                 input_symbol=[ShiftMove.INPUT.value, self.input_state, ShiftMove.INPUT.value],
+                                 output_state=f"C'({int(self.output_state)-1})",
+                                 symbol_or_move=[ShiftMove.Inverse(self.move), Tape.BLANK_SYMBOL, ShiftMove.NO_MOVE]
+                                 )
+
         return q1, q2
 
 
 class Tape:
     BLANK_SYMBOL = 'B'
     LIMIT_SYMBOL = '§'
-    tape_internal: list = [LIMIT_SYMBOL]
+    tape_internal: list
     pointer: int = 1
 
     def __init__(self, input_tape: str = None):
-        super().__init__()
+        self.tape_internal = [self.LIMIT_SYMBOL]
         for c in input_tape:
             self.tape_internal.append(c)
 
@@ -93,8 +112,12 @@ class Tape:
             raise Exception(f"Tape: Tentativa de sobrescrever o símbolo limitador de fita {self.LIMIT_SYMBOL}")
         self.tape_internal[self.pointer] = value
 
-    def read(self) -> str:
-        return self.tape_internal[self.pointer]
+    def read(self) -> str | ShiftMove:
+        s = self.tape_internal[self.pointer]
+        if ShiftMove(s) == ShiftMove.NONE:
+            return s
+        else:
+            return ShiftMove(s)
 
     def __str__(self):
         out: str = '|'
@@ -138,7 +161,12 @@ class TuringMachine:
         self.current_state = self.init_state
 
     def bind_transition(self, transition: TransitionQuintuple, readed_symbol: List[str]) -> bool:
-        return self.current_state == transition.input_state and (transition.input_symbol == readed_symbol or transition.input_symbol == ShiftMove.INPUT.value )
+        if self.current_state == transition.input_state:
+            for x, y in zip(transition.input_symbol, readed_symbol):
+                if x != "/" and x != y:
+                    return False
+            return True
+        return False
 
     def _execute_transition(self, transition: TransitionQuintuple | TransitionQuadruple):
 
@@ -193,7 +221,7 @@ class TuringMachine:
             raise Exception(
                 f"Máquina de Turing: Nenhuma transição encontrada para estado {self.current_state} e simbolo {symbol}")
         elif len(list_transitions) > 1:
-            raise Exception(
+            print(
                 f"Máquina de Turing: Mais de uma transição encontrada para estado {self.current_state} e simbolo "
                 f"{symbol}. Máquina Não Deterministica não implementada")
         transistion = list_transitions[0]
@@ -269,16 +297,57 @@ def make_reversible_turing_machine(Tm: TuringMachine) -> TuringMachine:
         transitions_quad.append(q1)
         transitions_quad.append(q2)
 
+    # Copy
+    tcopy: List[TransitionQuadruple] = [
+        TransitionQuadruple(input_state="A(f)",
+                            input_symbol=[Tape.BLANK_SYMBOL, f"{Tm.accept_state}", Tape.BLANK_SYMBOL],
+                            output_state="B'(1)",
+                            symbol_or_move=[Tape.BLANK_SYMBOL, f"{Tm.accept_state}", Tape.BLANK_SYMBOL]),
+        TransitionQuadruple(input_state="B'(1)",
+                            input_symbol=["/", "/", "/"],
+                            output_state="B(1)",
+                            symbol_or_move=[ShiftMove.RIGHT, ShiftMove.NO_MOVE, ShiftMove.RIGHT]),
+        TransitionQuadruple(input_state="B(1)",
+                            input_symbol=[Tape.BLANK_SYMBOL, f"{Tm.accept_state}", Tape.BLANK_SYMBOL],
+                            output_state="B'(2)",
+                            symbol_or_move=[Tape.BLANK_SYMBOL, f"{Tm.accept_state}", Tape.BLANK_SYMBOL]),
+        TransitionQuadruple(input_state="B'(2)",
+                            input_symbol=["/", "/", "/"],
+                            output_state="B(2)",
+                            symbol_or_move=[ShiftMove.LEFT, ShiftMove.NO_MOVE, ShiftMove.LEFT]),
+        TransitionQuadruple(input_state="B(2)",
+                            input_symbol=[Tape.BLANK_SYMBOL, f"{Tm.accept_state}", Tape.BLANK_SYMBOL],
+                            output_state="C(f)",
+                            symbol_or_move=[Tape.BLANK_SYMBOL, f"{Tm.accept_state}", Tape.BLANK_SYMBOL]),
+    ]
+
+    for symbol in Tm.tape_symbols:
+        if symbol == Tape.BLANK_SYMBOL:
+            continue
+        tb1 = TransitionQuadruple(input_state="B(1)",
+                                  input_symbol=[symbol, f"{Tm.accept_state}", Tape.BLANK_SYMBOL],
+                                  output_state="B'(1)",
+                                  symbol_or_move=[symbol, f"{Tm.accept_state}", symbol])
+        tb2 = TransitionQuadruple(input_state="B(2)",
+                                  input_symbol=[symbol, f"{Tm.accept_state}", symbol],
+                                  output_state="B'(2)",
+                                  symbol_or_move=[symbol, f"{Tm.accept_state}", symbol])
+
+        tcopy.append(tb1)
+        tcopy.append(tb2)
+
+    transitions_quad.extend(tcopy)
+
     transitions_quad.sort(key=lambda a: a.input_state.replace("'", ""))
 
-    tmp_tape = deepcopy(Tm.tapes)
+    tmp_tape = deepcopy(Tm.init_tapes)
+    tmp_tape.extend([Tape(f"{Tape.BLANK_SYMBOL}"), Tape(f"{Tape.BLANK_SYMBOL}")])
     tmp_tape[0].tape_internal.insert(1, Tape.BLANK_SYMBOL)
-    print(tmp_tape[0])
 
     for t in transitions_quad:
         print(t)
 
-    return TuringMachine(init_state="A(i)", accept_state="A(f)",
+    return TuringMachine(init_state="A(i)", accept_state="d",
                          states=states_list, tape_symbols=Tm.tape_symbols,
-                         transitions=transitions_quad, tapes=deepcopy(Tm.tapes),
+                         transitions=transitions_quad, tapes=tmp_tape,
                          input_symbols=Tm.input_symbols)
