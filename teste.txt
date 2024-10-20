@@ -1,7 +1,7 @@
-16 6 11 16
+16 6 10 15
 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
 a l f j o r
-a l f j o r t o n e B
+a l f j r t o n e B
 (1,a)=(2,t,R)
 (2,l)=(3,o,R)
 (3,f)=(4,r,R)
@@ -17,5 +17,4 @@ a l f j o r t o n e B
 (13,r)=(14,r,L)
 (14,o)=(15,o,L)
 (15,t)=(16,t,L)
-(16,B)=(1,B,R)
 alfajor

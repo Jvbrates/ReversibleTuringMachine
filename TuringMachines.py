@@ -1,7 +1,7 @@
 from typing import List
 from enum import Enum
 from copy import deepcopy
-
+from time import sleep
 
 class ShiftMove(Enum):
     NO_MOVE = "0"
@@ -22,6 +22,17 @@ class ShiftMove(Enum):
 
         return cls.NONE
 
+    @classmethod
+    def inverse(cls, value):
+        if value == ShiftMove.LEFT:
+            return ShiftMove.RIGHT
+        elif value == ShiftMove.RIGHT:
+            return ShiftMove.LEFT
+        return value
+
+    def __str__(self):
+        return self.value
+
 
 class TransitionQuadruple:
     input_state: str
@@ -36,9 +47,10 @@ class TransitionQuadruple:
         self.symbol_or_move = symbol_or_move
 
     def __str__(self):
+        tmp = any([isinstance(i, ShiftMove) for i in self.input_symbol])
         input_symbols_str = ','.join(self.input_symbol)
         symbol_or_move_str = ','.join(map(str, self.symbol_or_move))
-        return f"({self.input_state},{input_symbols_str}) = ({self.output_state},{symbol_or_move_str})"
+        return f"{self.input_state}({input_symbols_str}) = {self.output_state}({symbol_or_move_str})"
 
 
 class TransitionQuintuple:
@@ -68,18 +80,18 @@ class TransitionQuintuple:
                                  symbol_or_move=[self.move[0], self.input_state, ShiftMove.NO_MOVE]
                                  )
 
-        c1 = TransitionQuadruple(f"C{self.input_state}",
+        c1 = TransitionQuadruple(f"C({self.output_state})",
                                  input_symbol=[ShiftMove.INPUT.value, self.input_state, ShiftMove.INPUT.value],
-                                 output_state=f"C'({self.output_state})",
-                                 symbol_or_move=[ShiftMove.Inverse(self.move), Tape.BLANK_SYMBOL, ShiftMove.NO_MOVE]
+                                 output_state=f"C'({self.input_state})",
+                                 symbol_or_move=[ShiftMove.inverse(self.move[0]), Tape.BLANK_SYMBOL, ShiftMove.NO_MOVE]
                                  )
-        c1 = TransitionQuadruple(f"C'{self.input_state}",
-                                 input_symbol=[ShiftMove.INPUT.value, self.input_state, ShiftMove.INPUT.value],
-                                 output_state=f"C'({int(self.output_state)-1})",
-                                 symbol_or_move=[ShiftMove.Inverse(self.move), Tape.BLANK_SYMBOL, ShiftMove.NO_MOVE]
+        c2 = TransitionQuadruple(f"C'({self.input_state})",
+                                 input_symbol=[self.output_symbol[0], ShiftMove.INPUT.value, Tape.BLANK_SYMBOL],
+                                 output_state=f"C({self.input_state})",
+                                 symbol_or_move=[self.input_symbol[0], ShiftMove.LEFT, Tape.BLANK_SYMBOL]
                                  )
 
-        return q1, q2
+        return q1, q2, c1, c2
 
 
 class Tape:
@@ -221,7 +233,7 @@ class TuringMachine:
             raise Exception(
                 f"Máquina de Turing: Nenhuma transição encontrada para estado {self.current_state} e simbolo {symbol}")
         elif len(list_transitions) > 1:
-            print(
+            raise Exception(
                 f"Máquina de Turing: Mais de uma transição encontrada para estado {self.current_state} e simbolo "
                 f"{symbol}. Máquina Não Deterministica não implementada")
         transistion = list_transitions[0]
@@ -247,10 +259,15 @@ class TuringMachine:
 
         return out
 
-    def run(self):
+    def run(self, animated: float = None):
         while self.current_state != self.accept_state:
             self.step()
-            print(self)
+            if animated:
+                print("\033[H\033[J")
+                print(self)
+                sleep(animated)
+            else:
+                print(self)
         print("EXECUTION END")
 
 
@@ -291,13 +308,16 @@ def make_reversible_turing_machine(Tm: TuringMachine) -> TuringMachine:
 
     transtitions_quintuple += Tm.transitions
 
+    # Transições A(Padrão) e C(Reversing)
     transitions_quad: List[TransitionQuadruple] = []
     for transition in transtitions_quintuple:
-        q1, q2 = transition.getQuadruple()
+        q1, q2, c1, c2 = transition.getQuadruple()
         transitions_quad.append(q1)
         transitions_quad.append(q2)
+        transitions_quad.append(c1)
+        transitions_quad.append(c2)
 
-    # Copy
+    # Copy. Transições B
     tcopy: List[TransitionQuadruple] = [
         TransitionQuadruple(input_state="A(f)",
                             input_symbol=[Tape.BLANK_SYMBOL, f"{Tm.accept_state}", Tape.BLANK_SYMBOL],
@@ -347,7 +367,7 @@ def make_reversible_turing_machine(Tm: TuringMachine) -> TuringMachine:
     for t in transitions_quad:
         print(t)
 
-    return TuringMachine(init_state="A(i)", accept_state="d",
+    return TuringMachine(init_state="A(i)", accept_state="C(i)",
                          states=states_list, tape_symbols=Tm.tape_symbols,
                          transitions=transitions_quad, tapes=tmp_tape,
                          input_symbols=Tm.input_symbols)

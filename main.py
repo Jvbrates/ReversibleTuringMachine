@@ -85,8 +85,6 @@ def turing_from_file(file_read: IO) -> TuringMachine:
 
 file = open("teste.txt", "r")
 TM: TuringMachine = turing_from_file(file)
-# TM.run()
-
 reversible_TM = make_reversible_turing_machine(TM)
 reversible_TM.run()
 
